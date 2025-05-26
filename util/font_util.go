@@ -1,38 +1,66 @@
 package util
 
 import (
+	"os"
+	"sync"
+	"unicode"
+
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
-	"io/ioutil"
-	"log"
-	"unicode"
 )
 
-type FontUtil struct {
-	Src string
+// FontCache stores cached font objects.
+type FontCache struct {
+	fonts map[string]*truetype.Font
+	mu    sync.RWMutex
 }
 
-// NewFontUtil 字体绝对路径
-func NewFontUtil(src string) *FontUtil {
-	return &FontUtil{Src: src}
+// NewFontCache initializes an empty font cache.
+func NewFontCache() *FontCache {
+	return &FontCache{
+		fonts: make(map[string]*truetype.Font),
+	}
 }
 
-// GetFont 获取一个字体对象
-func (f *FontUtil) GetFont() *truetype.Font {
-	fontSourceBytes, err := ioutil.ReadFile(f.Src)
-	if err != nil {
-		log.Println("读取字体失败:", err)
+// GetFont retrieves a font from the cache or loads it from the given path.
+func (fc *FontCache) GetFont(fontPath string) (*truetype.Font, error) {
+	fc.mu.RLock()
+	font, found := fc.fonts[fontPath]
+	fc.mu.RUnlock()
+
+	if found {
+		return font, nil
 	}
 
-	trueTypeFont, err := freetype.ParseFont(fontSourceBytes)
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
 
-	if err != nil {
-		log.Println("解析字体失败:", err)
+	// Double check if another goroutine loaded the font while we were waiting for the lock
+	font, found = fc.fonts[fontPath]
+	if found {
+		return font, nil
 	}
 
-	return trueTypeFont
+	fontBytes, err := os.ReadFile(fontPath)
+	if err != nil {
+		return nil, err
+	}
+
+	parsedFont, err := freetype.ParseFont(fontBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	fc.fonts[fontPath] = parsedFont
+	return parsedFont, nil
 }
 
+// GlobalFontCache is a global instance of FontCache.
+var GlobalFontCache = NewFontCache()
+
+// GetEnOrChLength calculates the display length of a string containing English and/or Chinese characters.
+// This function was originally in the old font_util.go and seems generally useful for text placement,
+// so I'm keeping it here.
 func GetEnOrChLength(text string) int {
 	enCount, zhCount := 0, 0
 
@@ -44,7 +72,9 @@ func GetEnOrChLength(text string) int {
 		}
 	}
 
-	chOffset := (25/2)*zhCount + 5
+	// These offsets might need adjustment depending on the specific font and rendering.
+	// They were part of the original logic.
+	chOffset := (25/2)*zhCount + 5 
 	enOffset := enCount * 8
 
 	return chOffset + enOffset

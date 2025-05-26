@@ -21,13 +21,12 @@ type ImageUtil struct {
 	Src       string
 	SrcImage  image.Image
 	RgbaImage *image.RGBA
-	FontPath  string
 	Width     int
 	Height    int
 }
 
 // NewImageUtil src为绝对路径
-func NewImageUtil(src string, fontPath string) *ImageUtil {
+func NewImageUtil(src string) *ImageUtil {
 	srcImage := OpenPngImage(src)
 
 	return &ImageUtil{Src: src,
@@ -35,7 +34,22 @@ func NewImageUtil(src string, fontPath string) *ImageUtil {
 		RgbaImage: ImageToRGBA(srcImage),
 		Width:     srcImage.Bounds().Dx(),
 		Height:    srcImage.Bounds().Dy(),
-		FontPath:  fontPath,
+	}
+}
+
+// Copy creates a deep copy of the ImageUtil, ensuring the RgbaImage is new.
+func (iu *ImageUtil) Copy() *ImageUtil {
+	if iu == nil {
+		return nil
+	}
+	// Create a new RGBA image from the original source image for manipulation
+	newRgba := ImageToRGBA(iu.SrcImage)
+	return &ImageUtil{
+		Src:       iu.Src,
+		SrcImage:  iu.SrcImage, // Original decoded image can be reused
+		RgbaImage: newRgba,     // New RGBA copy for modifications
+		Width:     iu.Width,
+		Height:    iu.Height,
 	}
 }
 
@@ -65,18 +79,22 @@ func (i *ImageUtil) DecodeImageToFile() {
 }
 
 // SetText 为图片设置文字
-func (i *ImageUtil) SetText(text string, fontsize int, color color.RGBA) {
+func (i *ImageUtil) SetText(fontPath string, text string, fontsize int, color color.RGBA) error {
 
 	x := float64(i.Width) - float64(GetEnOrChLength(text))
 	y := float64(i.Height) - (25 / 2) + 7
 
-	font := NewFontUtil(i.FontPath)
+	font, err := GlobalFontCache.GetFont(fontPath)
+	if err != nil {
+		log.Printf("Failed to get font: %v", err)
+		return err
+	}
 
 	fc := freetype.NewContext()
 	// 设置屏幕每英寸的分辨率
 	//fc.SetDPI(72)
 	// 设置用于绘制文本的字体
-	fc.SetFont(font.GetFont())
+	fc.SetFont(font)
 	// 以磅为单位设置字体大小
 	fc.SetFontSize(float64(fontsize))
 	// 设置剪裁矩形以进行绘制
@@ -88,22 +106,28 @@ func (i *ImageUtil) SetText(text string, fontsize int, color color.RGBA) {
 	// 设置水印地址
 	pt := freetype.Pt(int(x), int(y))
 	// 根据 Pt 的坐标值绘制给定的文本内容
-	_, err := fc.DrawString(text, pt)
+	_, err = fc.DrawString(text, pt)
 	if err != nil {
 		log.Println("构造水印失败:", err)
+		return err
 	}
+	return nil
 }
 
 // SetArtText 为图片设置文字
-func (i *ImageUtil) SetArtText(text string, fontsize int, point vo.PointVO) error {
+func (i *ImageUtil) SetArtText(fontPath string, text string, fontsize int, point vo.PointVO) error {
 
-	font := NewFontUtil(i.FontPath)
+	font, err := GlobalFontCache.GetFont(fontPath)
+	if err != nil {
+		log.Printf("Failed to get font: %v", err)
+		return err
+	}
 
 	fc := freetype.NewContext()
 	// 设置屏幕每英寸的分辨率
 	//fc.SetDPI(72)
 	// 设置用于绘制文本的字体
-	fc.SetFont(font.GetFont())
+	fc.SetFont(font)
 	// 以磅为单位设置字体大小
 	fc.SetFontSize(float64(fontsize))
 	// 设置剪裁矩形以进行绘制
@@ -115,7 +139,7 @@ func (i *ImageUtil) SetArtText(text string, fontsize int, point vo.PointVO) erro
 	// 设置水印地址
 	pt := freetype.Pt(point.X, point.Y)
 	// 根据 Pt 的坐标值绘制给定的文本内容
-	_, err := fc.DrawString(text, pt)
+	_, err = fc.DrawString(text, pt)
 	if err != nil {
 		log.Printf("构造水印失败 err: %v", err)
 		return err

@@ -6,7 +6,10 @@ import (
 	"time"
 )
 
+const redisSkipMsg = "Skipping Redis test: requires a live Redis instance at 192.168.1.111:6379"
+
 func TestConfigRedisUtil_Delete(t *testing.T) {
+	t.Skip(redisSkipMsg)
 	cache := util.NewConfigRedisUtil([]string{"192.168.1.111:6379"}, "", "", false, 0)
 	val := "testvalconfig"
 	key := "testconfig"
@@ -19,6 +22,7 @@ func TestConfigRedisUtil_Delete(t *testing.T) {
 }
 
 func TestConfigRedisUtil_Exists(t *testing.T) {
+	t.Skip(redisSkipMsg)
 	cache := util.NewConfigRedisUtil([]string{"192.168.1.111:6379"}, "", "", false, 0)
 	val := "testvalconfig"
 	key := "testconfig"
@@ -36,6 +40,7 @@ func TestConfigRedisUtil_Exists(t *testing.T) {
 }
 
 func TestConfigRedisUtil_Get(t *testing.T) {
+	t.Skip(redisSkipMsg)
 	cache := util.NewConfigRedisUtil([]string{"192.168.1.111:6379"}, "", "", false, 0)
 	val := "testvalconfig"
 	key := "testconfig"

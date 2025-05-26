@@ -32,12 +32,23 @@ func (b *BlockPuzzleCaptchaService) Get() (map[string]interface{}, error) {
 
 	// 初始化背景图片
 	backgroundImage := img.GetBackgroundImage()
+	if backgroundImage == nil {
+		return nil, errors.New("failed to get background image")
+	}
 
 	// 为背景图片设置水印
-	backgroundImage.SetText(b.factory.config.Watermark.Text, b.factory.config.Watermark.FontSize, b.factory.config.Watermark.Color)
+	fontPath := b.factory.config.ResourcePath + constant.DefaultFont
+	err := backgroundImage.SetText(fontPath, b.factory.config.Watermark.Text, b.factory.config.Watermark.FontSize, b.factory.config.Watermark.Color)
+	if err != nil {
+		log.Printf("Error setting watermark: %v", err)
+		return nil, err
+	}
 
 	// 初始化模板图片
 	templateImage := img.GetTemplateImage()
+	if templateImage == nil {
+		return nil, errors.New("failed to get template image")
+	}
 
 	// 构造前端所需图片
 	b.pictureTemplatesCut(backgroundImage, templateImage)
@@ -76,12 +87,34 @@ func (b *BlockPuzzleCaptchaService) pictureTemplatesCut(backgroundImage *util.Im
 	// 插入干扰图
 	for {
 		newTemplateImage := img.GetTemplateImage()
+		// Ensure an image was actually retrieved
+		if newTemplateImage == nil {
+			log.Println("Warning: GetTemplateImage for interference returned nil. Skipping interference.")
+			break 
+		}
+
 		if newTemplateImage.Src != templateImage.Src {
+			// Ensure offsetX is within valid bounds
+			if backgroundImage.Width <= newTemplateImage.Width+5 {
+                 log.Println("Warning: Background image too narrow for interference. Skipping distinct interference.")
+                 break // or continue to try another template if many are available and logic supports it
+            }
 			offsetX := util.RandomInt(0, backgroundImage.Width-newTemplateImage.Width-5)
+			// The original condition for placing interference. Keep if it's domain specific.
+			// It appears to try to place the interference somewhat away from the puzzle piece.
+			// Consider if b.point.X (puzzle piece location) should be part of this logic.
+			// Example: if math.Abs(float64(offsetX - b.point.X)) > float64(newTemplateImage.Width)
 			if math.Abs(float64(newTemplateImage.Width-offsetX)) > float64(newTemplateImage.Width/2) {
 				b.interferenceByTemplate(backgroundImage, newTemplateImage, offsetX, b.point.Y)
 				break
 			}
+		}
+		// Safety break: If only one template image exists, this loop could be infinite.
+		// This check is a simplified way to prevent that. A more robust solution might involve
+		// checking against a list of all available template images if a distinct one is strictly required.
+		if templateImage.Src == newTemplateImage.Src {
+		    log.Println("Warning: Interference image is same as template. Skipping distinct interference.")
+		    break
 		}
 	}
 }

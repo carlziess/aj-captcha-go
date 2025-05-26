@@ -126,9 +126,11 @@ func (c *ClickWordCaptchaService) getImageData(image *util.ImageUtil) ([]vo.Poin
 		point := c.randomWordPoint(image.Width, image.Height, i, wordCount)
 		point.SetSecretKey(key)
 		// 随机设置文字 TODO 角度未设置
-		err := image.SetArtText(s, c.factory.config.ClickWord.FontSize, point)
+		fontPath := c.factory.config.ResourcePath + constant.DefaultFont
+		err := image.SetArtText(fontPath, s, c.factory.config.ClickWord.FontSize, point)
 
 		if err != nil {
+			log.Printf("Error setting art text: %v", err)
 			return nil, nil, err
 		}
 

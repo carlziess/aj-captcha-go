@@ -8,71 +8,121 @@ import (
 	"path/filepath"
 )
 
-var backgroundImageArr []string
-var clickBackgroundImageArr []string
-var templateImageArr []string
+var backgroundImageArr []*util.ImageUtil
+var clickBackgroundImageArr []*util.ImageUtil
+var templateImageArr []*util.ImageUtil
 
-var resourceAbsPath string
+// var resourceAbsPath string // No longer needed globally as font path is passed directly
 
 func SetUp(resourcePath string) {
-	resourceAbsPath = resourcePath
+	// resourceAbsPath = resourcePath // Not needed globally
 	root := resourcePath
 
-	//root := "/Users/skyline/go/src/aj-captcha-go"
 	backgroundImageRoot := root + constant.DefaultBackgroundImageDirectory
 	templateImageRoot := root + constant.DefaultTemplateImageDirectory
 	clickBackgroundImageRoot := root + constant.DefaultClickBackgroundImageDirectory
 
+	// Initialize slices to avoid nil pointer issues if directories are empty
+	backgroundImageArr = make([]*util.ImageUtil, 0)
+	templateImageArr = make([]*util.ImageUtil, 0)
+	clickBackgroundImageArr = make([]*util.ImageUtil, 0)
+
 	err := filepath.Walk(backgroundImageRoot, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			log.Printf("Error accessing path %s: %v\n", path, err)
+			return err
+		}
 		if info.IsDir() {
 			return nil
 		}
-		backgroundImageArr = append(backgroundImageArr, path)
-		return nil
-	})
-
-	err = filepath.Walk(templateImageRoot, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
+		imgUtil := util.NewImageUtil(path)
+		if imgUtil == nil {
+			log.Printf("Failed to load background image: %s", path)
+			return nil // Continue with other files
 		}
-		templateImageArr = append(templateImageArr, path)
+		backgroundImageArr = append(backgroundImageArr, imgUtil)
 		return nil
 	})
-
-	err = filepath.Walk(clickBackgroundImageRoot, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
-		clickBackgroundImageArr = append(clickBackgroundImageArr, path)
-		return nil
-	})
-
 	if err != nil {
-		log.Printf("初始化resource目录失败，请检查该目录是否存在 err: %v", err)
+		log.Printf("Error walking background image directory: %v", err)
 	}
 
+	err = filepath.Walk(templateImageRoot, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			log.Printf("Error accessing path %s: %v\n", path, err)
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		imgUtil := util.NewImageUtil(path)
+		if imgUtil == nil {
+			log.Printf("Failed to load template image: %s", path)
+			return nil // Continue with other files
+		}
+		templateImageArr = append(templateImageArr, imgUtil)
+		return nil
+	})
+	if err != nil {
+		log.Printf("Error walking template image directory: %v", err)
+	}
+
+	err = filepath.Walk(clickBackgroundImageRoot, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			log.Printf("Error accessing path %s: %v\n", path, err)
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		imgUtil := util.NewImageUtil(path)
+		if imgUtil == nil {
+			log.Printf("Failed to load click background image: %s", path)
+			return nil // Continue with other files
+		}
+		clickBackgroundImageArr = append(clickBackgroundImageArr, imgUtil)
+		return nil
+	})
+	if err != nil {
+		log.Printf("Error walking click background image directory: %v", err)
+	}
+
+	if len(backgroundImageArr) == 0 {
+		log.Println("Warning: No background images loaded. Check directory:", backgroundImageRoot)
+	}
+	if len(templateImageArr) == 0 {
+		log.Println("Warning: No template images loaded. Check directory:", templateImageRoot)
+	}
+	if len(clickBackgroundImageArr) == 0 {
+		log.Println("Warning: No click background images loaded. Check directory:", clickBackgroundImageRoot)
+	}
 }
 
 func GetBackgroundImage() *util.ImageUtil {
-	max := len(backgroundImageArr) - 1
-	if max <= 0 {
-		max = 1
+	if len(backgroundImageArr) == 0 {
+		log.Println("Error: No background images available.")
+		return nil
 	}
-	return util.NewImageUtil(backgroundImageArr[util.RandomInt(0, max)], resourceAbsPath+constant.DefaultFont)
+	originalImageUtil := backgroundImageArr[util.RandomInt(0, len(backgroundImageArr)-1)]
+	return originalImageUtil.Copy()
 }
 
 func GetTemplateImage() *util.ImageUtil {
-	max := len(templateImageArr) - 1
-	if max <= 0 {
-		max = 1
+	if len(templateImageArr) == 0 {
+		log.Println("Error: No template images available.")
+		return nil
 	}
-	return util.NewImageUtil(templateImageArr[util.RandomInt(0, max)], resourceAbsPath+constant.DefaultFont)
+	originalImageUtil := templateImageArr[util.RandomInt(0, len(templateImageArr)-1)]
+	return originalImageUtil.Copy()
 }
 
 func GetClickBackgroundImage() *util.ImageUtil {
-	max := len(templateImageArr) - 1
-	if max <= 0 {
-		max = 1
+	// Note: Original code used templateImageArr for max length, assuming it's a typo
+	// and should use clickBackgroundImageArr
+	if len(clickBackgroundImageArr) == 0 {
+		log.Println("Error: No click background images available.")
+		return nil
 	}
-	return util.NewImageUtil(clickBackgroundImageArr[util.RandomInt(0, max)], resourceAbsPath+constant.DefaultFont)
+	originalImageUtil := clickBackgroundImageArr[util.RandomInt(0, len(clickBackgroundImageArr)-1)]
+	return originalImageUtil.Copy()
 }
