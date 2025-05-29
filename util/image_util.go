@@ -221,17 +221,20 @@ func OpenPngImage(src string) image.Image {
 	return img
 }
 
-// ImageToRGBA 图片转rgba
+// ImageToRGBA converts any image.Image to a new *image.RGBA instance.
 func ImageToRGBA(img image.Image) *image.RGBA {
-	// No conversion needed if image is an *image.RGBA.
-	if dst, ok := img.(*image.RGBA); ok {
-		return dst
+	if img == nil {
+		// Returning nil if the input image is nil.
+		// Consider logging this case if it's unexpected.
+		// log.Println("Warning: ImageToRGBA received a nil image.")
+		return nil
 	}
-
-	// Use the image/draw package to convert to *image.RGBA.
-	b := img.Bounds()
-	dst := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
-	draw.Draw(dst, dst.Bounds(), img, b.Min, draw.Src)
+	bounds := img.Bounds()
+	// Create a new RGBA image with the same dimensions.
+	dst := image.NewRGBA(image.Rect(0, 0, bounds.Dx(), bounds.Dy()))
+	// Draw the source image onto the new RGBA image.
+	// The draw.Src operator copies the source image to the destination.
+	draw.Draw(dst, dst.Bounds(), img, bounds.Min, draw.Src)
 	return dst
 }
 
